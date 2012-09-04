@@ -1,0 +1,16 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+my $path = './';
+if (scalar(@ARGV)) {
+	$path = $ARGV[0];
+}
+my $info = `svn info $path`;
+my $url = '';
+if ($info =~ /^URL: (\S+)/m) {
+	$url = $1;
+}
+die "Can't find URL\n" unless $url;
+print $url;
