@@ -1,0 +1,9 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+my $url = `svnurl`;
+die "Can't find URL\n" unless $url;
+my $args = join(' ', @ARGV);
+print `svn log $args -v $url`;
