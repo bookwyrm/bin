@@ -1,0 +1,126 @@
+#!/usr/bin/env ruby
+
+# To use this script you need to install 4 extra gems.
+# gem install mailfactory
+# gem install tlsmail
+# gem install hpricot
+# gem install tamtam
+
+require 'rubygems'
+#require 'open-uri'
+#require 'net/smtp'
+#require 'mailfactory'
+#require 'tlsmail'
+require 'mail'
+require 'premailer'
+require 'trollop'
+require 'tempfile'
+
+opts = Trollop::options do
+  opt :from, "Send email from", :type => :string
+  opt :to, "Send email to", :type => :string
+  opt :html, "HTML email file", :type =>:string
+  opt :dry_run, "Dry run", :short => "-n"
+  opt :verbose, "Verbose mode"
+  opt :inline, "Inline CSS"
+end
+
+from_email = opts[:from]
+to_email = opts[:to]
+html_file = opts[:html]
+tmp = Tempfile.new('email')
+
+if html_file.nil?
+  abort "You must specify an HTML file with -h"
+end
+
+if opts[:verbose]
+  puts "html file: #{html_file}"
+end
+
+unless opts[:dry_run]
+  if from_email.nil?
+    abort "You must specify who the email is from with -f"
+  end
+
+  if to_email.nil?
+    abort "You must specify who the email is to with -t"
+  end
+end
+
+html = '';
+if opts[:inline]
+  premailer = Premailer.new(html_file, :warn_level => Premailer::Warnings::SAFE)
+  html = premailer.to_inline_css
+else
+  html = File.open(html_file, "r").read
+end
+
+if opts[:dry_run]
+  puts html
+  exit
+end
+
+File.open(tmp, 'w') do |dump|
+   dump.puts html
+end
+
+##
+# Pull title out of your test email and make it the subject
+##
+
+title = File.open(tmp, "r").read.match(/<title>([^<>]*)<\/title>/i).to_a[1].strip
+
+if opts[:verbose]
+  puts "to: #{to_email}"
+  puts "from: #{from_email}"
+end
+
+mail_opts = {
+  address: 'smtp.gmail.com',
+  port: 587,
+  user_name: ENV['email_username'],
+  password: ENV['email_password'],
+  authentication: 'plain',
+  enable_starttls_auto: true,
+}
+Mail.defaults do
+  delivery_method :smtp, mail_opts
+end
+
+##
+# Create and send email
+##
+mail = Mail.new do
+  from  from_email
+  to    to_email
+  subject title
+  
+  html_part do
+    content_type 'text/html; charset=UTF-8'
+    body html
+  end
+end
+
+mail.deliver
+
+#mail = MailFactory.new()
+#mail.to = "#{to}"
+#mail.from = "#{from}"
+#mail.subject = "#{title}"
+#mail.rawhtml = "#{html}"
+#mail.text = "This is the plain text version."
+
+#if ssl == "false"
+   #Net::SMTP.start(server, port, 'helo.local', username, password, :login) do |smtp|
+      #smtp.send_message(mail.to_s(), "#{from}", "#{to}")
+   #end
+#else
+   #Net::SMTP.enable_tls(OpenSSL::SSL::VERIFY_NONE)
+   #Net::SMTP.start(server, port, 'helo.local', username, password, :login) do |smtp|
+      #smtp.send_message(mail.to_s(), "#{from}", "#{to}")
+   #end
+#end
+
+
+
